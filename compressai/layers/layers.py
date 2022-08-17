@@ -67,15 +67,16 @@ class MaskedConv2d(nn.Conv2d):
         if mask_type not in ("A", "B"):
             raise ValueError(f'Invalid "mask_type" value "{mask_type}"')
 
-        self.register_buffer("mask", torch.ones_like(self.weight.data))
+        self.register_buffer("mask", torch.ones_like(self.weight.data))  
+        # self.weight.data继承了nn.conv2d这个类里的参数设置，shape:[384,192,5,5]
         _, _, h, w = self.mask.size()
-        self.mask[:, :, h // 2, w // 2 + (mask_type == "B") :] = 0
+        self.mask[:, :, h // 2, w // 2 + (mask_type == "B") :] = 0  # //是向下取整
         self.mask[:, :, h // 2 + 1 :] = 0
 
     def forward(self, x: Tensor) -> Tensor:
         # TODO(begaintj): weight assigment is not supported by torchscript
         self.weight.data *= self.mask
-        return super().forward(x)
+        return super().forward(x)  # 返回父类中的forward方法
 
 
 def conv3x3(in_ch: int, out_ch: int, stride: int = 1) -> nn.Module:

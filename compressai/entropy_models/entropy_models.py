@@ -155,6 +155,7 @@ class EntropyModel(nn.Module):
     def quantize(
         self, inputs: Tensor, mode: str, means: Optional[Tensor] = None
     ) -> Tensor:
+    # 训练过程进行添加（-0.5，0.5）的均匀噪声，推理过程（inference model）则四舍五入
         if mode not in ("noise", "dequantize", "symbols"):
             raise ValueError(f'Invalid quantization mode: "{mode}"')
 
@@ -578,14 +579,14 @@ class GaussianConditional(EntropyModel):
         if scale_table and (
             scale_table != sorted(scale_table) or any(s <= 0 for s in scale_table)
         ):
-            raise ValueError(f'Invalid scale_table "({scale_table})"')
+            raise ValueError(f'Invalid scale_table "({scale_table})"')  # sorted 返回一个排序后的新序列
 
         self.tail_mass = float(tail_mass)
         if scale_bound is None and scale_table:
             scale_bound = self.scale_table[0]
         if scale_bound <= 0:
             raise ValueError("Invalid parameters")
-        self.lower_bound_scale = LowerBound(scale_bound)
+        self.lower_bound_scale = LowerBound(scale_bound) # 自定义一个梯度下限
 
         self.register_buffer(
             "scale_table",
@@ -604,12 +605,12 @@ class GaussianConditional(EntropyModel):
     def _standardized_cumulative(self, inputs: Tensor) -> Tensor:
         half = float(0.5)
         const = float(-(2**-0.5))
-        # Using the complementary error function maximizes numerical precision.
+        # 使用互补误差函数最大限度地提高数值精度
         return half * torch.erfc(const * inputs)
 
     @staticmethod
     def _standardized_quantile(quantile):
-        return scipy.stats.norm.ppf(quantile)
+        return scipy.stats.norm.ppf(quantile)  # 返回当概率为quantile时对应的正态分布值
 
     def update_scale_table(self, scale_table, force=False):
         # Check if we need to update the gaussian conditional parameters, the
@@ -657,12 +658,12 @@ class GaussianConditional(EntropyModel):
         else:
             values = inputs
 
-        scales = self.lower_bound_scale(scales)
+        scales = self.lower_bound_scale(scales)  # 梯度下限
 
         values = torch.abs(values)
-        upper = self._standardized_cumulative((half - values) / scales)
-        lower = self._standardized_cumulative((-half - values) / scales)
-        likelihood = upper - lower
+        upper = self._standardized_cumulative((half - values) / scales)  # 获取分布函数的上界 
+        lower = self._standardized_cumulative((-half - values) / scales) # 获取分布函数的下界 
+        likelihood = upper - lower # 上界减去下界后即可得到估计的概率值
 
         return likelihood
 
@@ -675,8 +676,9 @@ class GaussianConditional(EntropyModel):
     ) -> Tuple[Tensor, Tensor]:
         if training is None:
             training = self.training
-        outputs = self.quantize(inputs, "noise" if training else "dequantize", means)
-        likelihood = self._likelihood(outputs, scales, means)
+        outputs = self.quantize(inputs, "noise" if training else "dequantize", means) # 对输入进行量化
+        # 用加性噪声替代量化器
+        likelihood = self._likelihood(outputs, scales, means) # 对量化后的数值进行熵率估计
         if self.use_likelihood_bound:
             likelihood = self.likelihood_lower_bound(likelihood)
         return outputs, likelihood

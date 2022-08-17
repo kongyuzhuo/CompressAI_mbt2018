@@ -27,6 +27,11 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import os, sys
+parentdir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0,parentdir) 
+print('__file__={0:<35} | __name__={1:<20} | __package__={2:<20}'.format(__file__,__name__,str(__package__)))
+
 import argparse
 import math
 import random
@@ -40,6 +45,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
+# from ..compressai.datasets.image import ImageFolder
 from compressai.datasets import ImageFolder
 from compressai.zoo import image_models
 

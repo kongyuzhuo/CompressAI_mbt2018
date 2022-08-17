@@ -264,9 +264,9 @@ class ScaleHyperprior(CompressionModel):
     def forward(self, x):
         y = self.g_a(x)
         z = self.h_a(torch.abs(y))
-        z_hat, z_likelihoods = self.entropy_bottleneck(z)
+        z_hat, z_likelihoods = self.entropy_bottleneck(z) # 对z进行量化以及码率估计
         scales_hat = self.h_s(z_hat)
-        y_hat, y_likelihoods = self.gaussian_conditional(y, scales_hat)
+        y_hat, y_likelihoods = self.gaussian_conditional(y, scales_hat) # 量化y，以及估计y的码率
         x_hat = self.g_s(y_hat)
 
         return {
@@ -392,7 +392,7 @@ class MeanScaleHyperprior(ScaleHyperprior):
         return {"x_hat": x_hat}
 
 
-class JointAutoregressiveHierarchicalPriors(MeanScaleHyperprior):
+class JointAutoregressiveHierarchicalPriors(MeanScaleHyperprior): # 联合回归 + 层次化先验
     r"""Joint Autoregressive Hierarchical Priors model from D.
     Minnen, J. Balle, G.D. Toderici: `"Joint Autoregressive and Hierarchical
     Priors for Learned Image Compression" <https://arxiv.org/abs/1809.02736>`_,
@@ -401,13 +401,14 @@ class JointAutoregressiveHierarchicalPriors(MeanScaleHyperprior):
     Args:
         N (int): Number of channels
         M (int): Number of channels in the expansion layers (last layer of the
-            encoder and last layer of the hyperprior decoder)
+            encoder and last layer of the hyperprior decoder) 
     """
 
+    # M：扩展层中的通道数（编码器的最后一层和超先验解码器的最后一层）
     def __init__(self, N=192, M=192, **kwargs):
         super().__init__(N=N, M=M, **kwargs)
 
-        self.g_a = nn.Sequential(
+        self.g_a = nn.Sequential(         
             conv(3, N, kernel_size=5, stride=2),
             GDN(N),
             conv(N, N, kernel_size=5, stride=2),
@@ -415,7 +416,7 @@ class JointAutoregressiveHierarchicalPriors(MeanScaleHyperprior):
             conv(N, N, kernel_size=5, stride=2),
             GDN(N),
             conv(N, M, kernel_size=5, stride=2),
-        )
+        )   # g_a为编码过程 encoder (analysis)
 
         self.g_s = nn.Sequential(
             deconv(M, N, kernel_size=5, stride=2),
@@ -425,7 +426,7 @@ class JointAutoregressiveHierarchicalPriors(MeanScaleHyperprior):
             deconv(N, N, kernel_size=5, stride=2),
             GDN(N, inverse=True),
             deconv(N, 3, kernel_size=5, stride=2),
-        )
+        )  # g_s为解码过程 decoder (synthesis)
 
         self.h_a = nn.Sequential(
             conv(M, N, stride=1, kernel_size=3),
@@ -433,7 +434,7 @@ class JointAutoregressiveHierarchicalPriors(MeanScaleHyperprior):
             conv(N, N, stride=2, kernel_size=5),
             nn.LeakyReLU(inplace=True),
             conv(N, N, stride=2, kernel_size=5),
-        )
+        )  # h_a 是 hyper encoder
 
         self.h_s = nn.Sequential(
             deconv(N, M, stride=2, kernel_size=5),
@@ -441,7 +442,7 @@ class JointAutoregressiveHierarchicalPriors(MeanScaleHyperprior):
             deconv(M, M * 3 // 2, stride=2, kernel_size=5),
             nn.LeakyReLU(inplace=True),
             conv(M * 3 // 2, M * 2, stride=1, kernel_size=3),
-        )
+        )  # h_s 是 hyper decoder
 
         self.entropy_parameters = nn.Sequential(
             nn.Conv2d(M * 12 // 3, M * 10 // 3, 1),
@@ -453,7 +454,7 @@ class JointAutoregressiveHierarchicalPriors(MeanScaleHyperprior):
 
         self.context_prediction = MaskedConv2d(
             M, 2 * M, kernel_size=5, padding=2, stride=1
-        )
+        )  # mask的大小就是kernel的大小
 
         self.gaussian_conditional = GaussianConditional(None)
         self.N = int(N)

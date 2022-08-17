@@ -38,7 +38,7 @@ from compressai.ops.parametrizers import NonNegativeParametrizer
 __all__ = ["GDN", "GDN1"]
 
 
-class GDN(nn.Module):
+class GDN(nn.Module):   # 高斯化图像数据，可以当作无监督学习工具
     r"""Generalized Divisive Normalization layer.
 
     Introduced in `"Density Modeling of Images Using a Generalized Normalization
@@ -64,13 +64,13 @@ class GDN(nn.Module):
         gamma_init = float(gamma_init)
         self.inverse = bool(inverse)
 
-        self.beta_reparam = NonNegativeParametrizer(minimum=beta_min)
+        self.beta_reparam = NonNegativeParametrizer(minimum=beta_min) # 用于训练期间的稳定性
         beta = torch.ones(in_channels)
         beta = self.beta_reparam.init(beta)
-        self.beta = nn.Parameter(beta)
+        self.beta = nn.Parameter(beta) # nn.parameter会被自动认为是可训练的参数
 
         self.gamma_reparam = NonNegativeParametrizer()
-        gamma = gamma_init * torch.eye(in_channels)
+        gamma = gamma_init * torch.eye(in_channels) # 生成对角线都是1，其余部分为0的二维数组
         gamma = self.gamma_reparam.init(gamma)
         self.gamma = nn.Parameter(gamma)
 
