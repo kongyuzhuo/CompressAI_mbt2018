@@ -49,6 +49,8 @@ from torchvision import transforms
 
 import compressai
 
+import numpy as np 
+
 from compressai.zoo import image_models as pretrained_models
 from compressai.zoo import load_state_dict
 from compressai.zoo.image import model_architectures as architectures
@@ -120,6 +122,21 @@ def inference(model, x):
         out_dec["x_hat"], (-padding_left, -padding_right, -padding_top, -padding_bottom)
     )
 
+    # 输出图片
+    print(out_dec["x_hat"].shape)
+    img=out_dec["x_hat"]
+    img_save = img[0]*255
+    # print(img_save.shape)
+    img_save = np.transpose(img_save.cpu().detach().numpy(), (1, 2, 0))
+    img_save = img_save[:, :, 0:3]
+    img_save = np.array(img_save, dtype=np.uint8)
+    if np.ndim(img_save) > 3:
+        assert img_save.shape[0] == 1
+        img_save = img_save[0]
+
+    img_save = Image.fromarray(img_save, "RGB")
+    img_save.save(f"./testagain.jpg")
+
     num_pixels = x.size(0) * x.size(2) * x.size(3)
     bpp = sum(len(s[0]) for s in out_enc["strings"]) * 8.0 / num_pixels
 
@@ -190,7 +207,7 @@ def setup_args():
     )
 
     # Common options.
-    parent_parser.add_argument("dataset", type=str, help="dataset path")
+    parent_parser.add_argument("dataset", type=str, help="dataset path",default="/workspace/kyz/compressAI/tests/assets/dataset/image")
     parent_parser.add_argument(
         "-a",
         "--architecture",
@@ -198,6 +215,7 @@ def setup_args():
         choices=pretrained_models.keys(),
         help="model architecture",
         required=True,
+        default="bmshj2018-hyperprior"
     )
     parent_parser.add_argument(
         "-c",
@@ -249,7 +267,7 @@ def setup_args():
         dest="qualities",
         nargs="+",
         type=int,
-        default=(1,),
+        default=(3,),
     )
 
     checkpoint_parser = subparsers.add_parser("checkpoint", parents=[parent_parser])
@@ -269,11 +287,24 @@ def setup_args():
 def main(argv):
     parser = setup_args()
     args = parser.parse_args(argv)
+    # 调试所用
+    args.source = "pretrained"
+    args.dataset = "/workspace/kyz/compressAI/tests/assets/dataset/image"
+    args.qualities = (3,)
+    args.metric = "mse"
+    args.verbose = False
+    args.entropy_estimation = False
+    args.half = False
+    args.cuda = False
+    args.architecture = "bmshj2018-hyperprior"
+    args.entropy_coder = compressai.available_entropy_coders()[0]
+    
 
-    if not args.source:
-        print("Error: missing 'checkpoint' or 'pretrained' source.", file=sys.stderr)
-        parser.print_help()
-        raise SystemExit(1)
+
+    # if not args.source:
+    #     print("Error: missing 'checkpoint' or 'pretrained' source.", file=sys.stderr)
+    #     parser.print_help()
+    #     raise SystemExit(1)
 
     filepaths = collect_images(args.dataset)
     if len(filepaths) == 0:
@@ -298,7 +329,7 @@ def main(argv):
         if args.verbose:
             sys.stderr.write(log_fmt.format(*opts, run=run))
             sys.stderr.flush()
-        model = load_func(*opts, run)
+        model = load_func(*opts, run) # 加载预训练模型 opts包括 architecture 和 metric
         if args.cuda and torch.cuda.is_available():
             model = model.to("cuda")
         metrics = eval_model(model, filepaths, args.entropy_estimation, args.half)

@@ -32,6 +32,8 @@ import struct
 import sys
 import time
 
+import os
+
 from enum import Enum
 from pathlib import Path
 from typing import IO, Dict, NamedTuple, Tuple, Union
@@ -391,18 +393,18 @@ def _encode(input, num_of_frames, model, metric, quality, coder, device, output)
     codec_header_info = get_header(model, metric, quality, num_of_frames, codec_type)
     load_time = time.time() - start
 
-    if not Path(input).is_file():
-        raise FileNotFoundError(f"{input} does not exist")
-
+    # 源代码：
+    # if not Path(input).is_file():
+    #     raise FileNotFoundError(f"{input} does not exist")
     codec_info = CodecInfo(codec_header_info, None, None, net, device)
-    out = encode_func[codec_type](input, codec_info, output)
-
-    enc_time = time.time() - enc_start
-
-    print(
+    # 更改后：
+    for image in os.listdir(input):
+        out = encode_func[codec_type](input+'/'+image, codec_info, output)
+        enc_time = time.time() - enc_start
+        print(
         f"{out['bpp']:.3f} bpp |"
         f" Encoded in {enc_time:.2f}s (model loading: {load_time:.2f}s)"
-    )
+        )
 
 
 def decode_image(f, codec: CodecInfo, output):
@@ -567,6 +569,7 @@ def encode(argv):
     args = parser.parse_args(argv)
     if not args.output:
         args.output = Path(Path(args.input).resolve().name).with_suffix(".bin")
+        # args.output = Path(Path("/workspace/kyz/compressAI/bin").resolve().name).with_suffix(".bin")
 
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
     _encode(

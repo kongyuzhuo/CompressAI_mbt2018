@@ -37,8 +37,17 @@ from compressai.models import (
     MeanScaleHyperprior,
     ScaleHyperprior,
 )
+import numpy as np
+import torch
+from pretrained import load_pretrained
+import os
+import subprocess
+import torch.utils.data as data
+import numpy as np
+import time
+import torch
 
-from .pretrained import load_pretrained
+import pickle
 
 __all__ = [
     "bmshj2018_factorized",
@@ -409,3 +418,53 @@ def cheng2020_attn(quality, metric="mse", pretrained=False, progress=True, **kwa
     return _load_model(
         "cheng2020-attn", metric, quality, pretrained, progress, **kwargs
     )
+
+# def main(x):
+#     balle = bmshj2018_hyperprior(quality=3, pretrained=True)
+#     y=balle(x)
+#     print(y)
+class LRHR_PKLDataset(data.Dataset):
+    def __init__(self, opt):
+        super(LRHR_PKLDataset, self).__init__()
+        self.opt = opt
+        hr_file_path = self.opt
+        n_max = int(1e8)
+        t = time.time()
+
+        self.hr_images = self.load_pkls(hr_file_path, n_max)
+
+        min_val_hr = np.min([i.min() for i in self.hr_images[:20]])
+        max_val_hr = np.max([i.max() for i in self.hr_images[:20]])
+
+        t = time.time() - t
+        print("Loaded {} HR images with [{:.2f}, {:.2f}] in {:.2f}s from {}".
+              format(len(self.hr_images), min_val_hr, max_val_hr, t, hr_file_path))
+
+        self.measures = None
+
+    def load_pkls(self, path, n_max):
+        assert os.path.isfile(path), path
+        images = []
+        with open(path, "rb") as f:
+            images += pickle.load(f)
+        assert len(images) > 0, path
+        # images = images[:n_max]
+        images = [np.transpose(image, (2, 0, 1)) for image in images]
+        # for image in images:
+        #     # images = [np.transpose(np.array(image), [2, 0, 1])]
+        return images
+        
+    def __len__(self):
+        return len(self.hr_images)
+
+    def __getitem__(self, item):
+        hr = self.hr_images[item]
+        hr = hr / 255.0
+        hr = torch.Tensor(hr)
+        return { 'GT': hr, 'GT_path': str(item)}
+        
+
+if __name__ == '__main__':
+    # x=torch.randn(4,3,256,256)
+    dataset = LRHR_PKLDataset('/workspace/kyz/lar_compress/dataset/pkls/DIV2K_valid_HR_valid_HR.pklv4')
+    print(dataset)
