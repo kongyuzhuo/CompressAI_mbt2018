@@ -87,17 +87,17 @@ def psnr(a: torch.Tensor, b: torch.Tensor) -> float:
 
 def read_image(filepath: str) -> torch.Tensor:
     assert os.path.isfile(filepath)
-    img = Image.open(filepath).convert("RGB")
+    img = Image.open(filepath).convert("RGB") # <PIL.Image.Image image mode=RGB size=768x512 at 0x7FF85D64CF10>
     return transforms.ToTensor()(img)
 
 
 @torch.no_grad()
 def inference(model, x):
-    x = x.unsqueeze(0)
+    x = x.unsqueeze(0) # x是4维的
 
     h, w = x.size(2), x.size(3)
     p = 64  # maximum 6 strides of 2
-    new_h = (h + p - 1) // p * p
+    new_h = (h + p - 1) // p * p # new_h = h = 512 先//p向下取整
     new_w = (w + p - 1) // p * p
     padding_left = (new_w - w) // 2
     padding_right = new_w - w - padding_left
@@ -111,11 +111,11 @@ def inference(model, x):
     )
 
     start = time.time()
-    out_enc = model.compress(x_padded)
+    out_enc = model.compress(x_padded) # shape:[8,12]
     enc_time = time.time() - start
 
     start = time.time()
-    out_dec = model.decompress(out_enc["strings"], out_enc["shape"])
+    out_dec = model.decompress(out_enc["strings"], out_enc["shape"]) # 最终out_dec中只有['x_hat']一个变量 len=1,4维
     dec_time = time.time() - start
 
     out_dec["x_hat"] = F.pad(
@@ -125,7 +125,7 @@ def inference(model, x):
     # 输出图片
     print(out_dec["x_hat"].shape)
     img=out_dec["x_hat"]
-    img_save = img[0]*255
+    img_save = img[0]*255 #涉及到所有的元素 都x255
     # print(img_save.shape)
     img_save = np.transpose(img_save.cpu().detach().numpy(), (1, 2, 0))
     img_save = img_save[:, :, 0:3]
@@ -183,9 +183,9 @@ def load_checkpoint(arch: str, checkpoint_path: str) -> nn.Module:
 
 
 def eval_model(model, filepaths, entropy_estimation=False, half=False):
-    device = next(model.parameters()).device
+    device = next(model.parameters()).device # type = CPU 跟cuda=false有关？
     metrics = defaultdict(float)
-    for f in filepaths:
+    for f in filepaths:             # f对应的某路径下的png图片
         x = read_image(f).to(device)
         if not entropy_estimation:
             if half:
@@ -193,7 +193,7 @@ def eval_model(model, filepaths, entropy_estimation=False, half=False):
                 x = x.half()
             rv = inference(model, x)
         else:
-            rv = inference_entropy_estimation(model, x)
+            rv = inference_entropy_estimation(model, x) # rv就是包含psnr ssim bpp等的字典
         for k, v in rv.items():
             metrics[k] += v
     for k, v in metrics.items():
@@ -332,7 +332,7 @@ def main(argv):
         model = load_func(*opts, run) # 加载预训练模型 opts包括 architecture 和 metric
         if args.cuda and torch.cuda.is_available():
             model = model.to("cuda")
-        metrics = eval_model(model, filepaths, args.entropy_estimation, args.half)
+        metrics = eval_model(model, filepaths, args.entropy_estimation, args.half) # 读入图片
         for k, v in metrics.items():
             results[k].append(v)
 
