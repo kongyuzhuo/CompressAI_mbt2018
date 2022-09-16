@@ -61,7 +61,7 @@ def read_image(filepath: str) -> torch.Tensor:
 
 
 @torch.no_grad()
-def inference(model, x):
+def inference(model, x, name_img):
     x = x.unsqueeze(0) # x是4维的
 
     h, w = x.size(2), x.size(3)
@@ -100,7 +100,7 @@ def inference(model, x):
         img_save = img_save[0]
 
     img_save = Image.fromarray(img_save, "RGB")
-    img_save.save(f"./test2.jpg")
+    img_save.save(f"/workspace/kyz/dataset/compressed/test_urban2/{name_img}")
 
     return {
         "psnr": psnr(x, out_dec["x_hat"]),
@@ -116,9 +116,10 @@ def eval_model(model, filepaths, entropy_estimation=False, half=False):
     device = next(model.parameters()).device # type = CPU 跟cuda=false有关？
     metrics = defaultdict(float)
     for f in filepaths:             # f对应的某路径下的png图片
+        name_img=f.split("/")[-1]
         x = read_image(f).to(device)
         if not entropy_estimation:
-            rv = inference(model, x) # rv就是包含psnr ssim bpp等的字典      
+            rv = inference(model, x, name_img) # rv就是包含psnr ssim bpp等的字典      
         for k, v in rv.items():
             metrics[k] += v
     for k, v in metrics.items():
@@ -138,12 +139,12 @@ def main(argv):
     args = parser.parse_args(argv)
     # 调试所用
     args.source = "pretrained"
-    args.dataset = "/workspace/kyz/compressAI/tests/assets/dataset/image"
+    args.dataset = "/workspace/kyz/dataset/original/test/urban2"
     args.qualities = (3,)
     args.metric = "mse"
     args.entropy_estimation = False
     args.half = False
-    args.cuda = False
+    args.cuda = True
     args.architecture = "bmshj2018-hyperprior"
     args.entropy_coder = compressai.available_entropy_coders()[0]
 

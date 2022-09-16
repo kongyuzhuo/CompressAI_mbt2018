@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "env": {"CUDA_VISIBLE_DEVICES": "1"},
+            "env": {"CUDA_VISIBLE_DEVICES": "0"},
             // "args": ["--master_port", "23955", "--nproc_per_node",  "1", 
             //         "function/train_s3dis_dist.py", 
             //         "--local_rank", "0", "--cfg",  "cfgs/s3dis/pospool.yaml"] 
